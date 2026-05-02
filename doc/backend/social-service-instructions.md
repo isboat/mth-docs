@@ -20,7 +20,7 @@ It powers the "Creator and Collector Connection" feature of the platform.
 
 - **Framework**: ASP.NET Core API.
 - **Database**: MongoDB.
-- **Communication**: REST APIs; Azure Service Bus for events.
+- **Communication**: REST APIs; Azure Service Bus for publishing activity events (uses shared event contracts).
 - **Deployment**: Azure App Service.
 
 ## Data Models
@@ -162,30 +162,32 @@ Base URL: `/api/social`
 
 ## Integration with Other Services
 
-- **User Service**: Link follower/following data; update reputation scores.
+- **User Service**: Link follower/following data; update reputation scores; listens for `UserUpdatedEvent` from shared library.
 - **Token Service**: Track token engagement metrics.
-- **Notification Service**: Emit events for follows, comments, badges.
+- **Notification Service**: Publishes custom activity events for follows, comments, badges based on shared messaging patterns.
 - **Claim Service**: Track claimed tokens for reputation.
 
 ## Implementation Guidance
 
 ### ASP.NET Core Setup
 1. Create Web API project: `dotnet new webapi -n SocialService`.
-2. Add packages: `MongoDB.Driver`.
+2. Add packages: `MongoDB.Driver`, `Azure.Messaging.ServiceBus`.
 3. Configure MongoDB in `appsettings.json`.
-4. Add shared services and shared JWT authentication:
+4. Add shared services, JWT authentication, and messaging:
    - `services.AddSharedServices(configuration);`
    - `services.AddJwtAuthentication(configuration);`
    - `services.AddMongoDb(connectionString, "MemeTokenHubDB");`
+   - `services.AddServiceBusMessaging(configuration);`
    - `app.UseAuthentication();`
    - `app.UseAuthorization();`
-5. Implement controllers, services, and repositories.
+5. Implement controllers, services, repositories, and activity event publishers.
 
 ### Key Classes
 - `SocialController`: API endpoints.
 - `SocialService`: Business logic (follows, feeds, leaderboards).
-- `ReputationService`: Calculate scores and badges.
-- `ActivityService`: Track and push activities.
+- `ReputationService`: Calculate blish activity events using shared messaging patterns.
+- `SocialRepository : BaseRepository<SocialActivity>`: MongoDB interactions.
+- `ActivityEventPublisher`: Publishes custom activity events to Azure Service Bus following `IEventMessage` pattern from shared library
 - `SocialRepository : BaseRepository<SocialActivity>`: MongoDB interactions.
 
 ### Security

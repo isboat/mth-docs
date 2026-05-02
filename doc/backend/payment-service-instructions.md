@@ -19,7 +19,7 @@ It ensures secure payment processing.
 - **Framework**: ASP.NET Core API.
 - **Database**: MongoDB.
 - **External Integration**: Helio API for payments.
-- **Communication**: REST APIs.
+- **Communication**: REST APIs; optional Azure Service Bus for payment event notifications.
 - **Deployment**: Azure App Service.
 
 ## Data Models
@@ -74,15 +74,16 @@ Base URL: `/api/payments`
 
 ### ASP.NET Core Setup
 1. Create Web API project.
-2. Add packages: `MongoDB.Driver`, `Helio` SDK or HTTP client.
+2. Add packages: `MongoDB.Driver`, `Helio SDK or HTTP client`, `Azure.Messaging.ServiceBus` (optional for events).
 3. Configure MongoDB in `appsettings.json`.
-4. Add shared services and shared JWT authentication:
+4. Add shared services, JWT authentication, and optional messaging:
    - `services.AddSharedServices(configuration);`
    - `services.AddJwtAuthentication(configuration);`
    - `services.AddMongoDb(connectionString, "MemeTokenHubDB");`
+   - `services.AddServiceBusMessaging(configuration);` (optional)
    - `app.UseAuthentication();`
    - `app.UseAuthorization();`
-5. Implement controllers, services, repositories.
+5. Implement controllers, services, repositories, and optional event publishers.
 
 ### Key Classes
 - `PaymentController`

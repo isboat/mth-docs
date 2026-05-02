@@ -21,7 +21,7 @@ It enables public browsing and supports claim workflows by providing token detai
 - **Framework**: ASP.NET Core API (Web API project).
 - **Database**: MongoDB (document-based for flexible token data).
 - **External APIs**: Integrate with blockchain explorers (e.g., Etherscan, Solscan) for on-chain data.
-- **Communication**: REST APIs; Azure Service Bus for events (e.g., new token added).
+- **Communication**: REST APIs; optional Azure Service Bus for publishing token-related events (uses shared messaging patterns).
 - **Deployment**: Publish to Azure App Service or cloud VM.
 
 ## Data Models
@@ -122,8 +122,8 @@ Base URL: `/api/tokens`
 ## Integration with Other Services
 
 - **API Gateway**: Routes public requests.
-- **Claim Service**: Updates claim status on tokens.
-- **User Service**: Links creator profiles.
+- **Claim Service**: Updates claim status on tokens; publishes `ClaimApprovedEvent` from shared library.
+- **User Service**: Links creator profiles; listens for `UserUpdatedEvent` from shared library.
 - **Social Service**: Pulls social proof data.
 - **External APIs**: Fetch on-chain data periodically or on-demand.
 
@@ -131,20 +131,22 @@ Base URL: `/api/tokens`
 
 ### ASP.NET Core Setup
 1. Create Web API project: `dotnet new webapi -n TokenService`.
-2. Add packages: `MongoDB.Driver`, `HttpClient` for external APIs.
+2. Add packages: `MongoDB.Driver`, `HttpClient` for external APIs, `Azure.Messaging.ServiceBus` (optional).
 3. Configure MongoDB in `appsettings.json`.
-4. Add shared services and shared JWT authentication:
+4. Add shared services, JWT authentication, and optional messaging:
    - `services.AddSharedServices(configuration);`
    - `services.AddJwtAuthentication(configuration);`
    - `services.AddMongoDb(connectionString, "MemeTokenHubDB");`
+   - `services.AddServiceBusMessaging(configuration);` (optional)
    - `app.UseAuthentication();`
    - `app.UseAuthorization();`
-5. Implement controllers, services, and repositories.
+5. Implement controllers, services, repositories, and optional event handlers.
 
 ### Key Classes
 - `TokenController`: API endpoints.
 - `TokenService`: Business logic (feeds, search).
 - `TokenRepository`: MongoDB interactions.
+- `TokenEventHandler` (optional): Handles events from shared library (e.g., `ClaimApprovedEvent`).
 - `ExternalApiService`: For blockchain data.
 
 ### Security

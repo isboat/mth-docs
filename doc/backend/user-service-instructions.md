@@ -21,7 +21,7 @@ It ensures secure, role-based access for features like claim submission, profile
 - **Framework**: ASP.NET Core API (Web API project).
 - **Database**: MongoDB (document-based for flexible user data).
 - **Authentication**: JWT tokens; Privy token exchange for frontend auth.
-- **Communication**: REST APIs for synchronous calls; Azure Service Bus for events (e.g., user updates).
+- **Communication**: REST APIs for synchronous calls; Azure Service Bus for publishing user update events (uses shared event contracts from shared library).
 - **Deployment**: Azure App Service or cloud VM.
 
 ## Data Models
@@ -145,28 +145,30 @@ When a user logs in via Privy on the frontend, a token exchange is needed:
 ## Integration with Other Services
 
 - **API Gateway**: Routes requests; provides JWT validation.
-- **Social Service**: Queries user data for followers, leaderboards.
+- **Social Service**: Queries user data for followers, leaderboards; listens for `UserUpdatedEvent` from shared library.
 - **Claim Service**: Checks user roles for claim access.
-- **Notification Service**: Sends events on profile updates (via Azure Service Bus).
+- **Notification Service**: Listens for `UserUpdatedEvent` from shared library for notifications (via Azure Service Bus).
 - **Frontend**: Privy auth triggers user creation; service provides profile data.
 
 ## Implementation Guidance
 
 ### ASP.NET Core Setup
 1. Create Web API project: `dotnet new webapi -n UserService`.
-2. Add packages: `Microsoft.AspNetCore.Authentication.JwtBearer`, `MongoDB.Driver`.
+2. Add packages: `Microsoft.AspNetCore.Authentication.JwtBearer`, `MongoDB.Driver`, `Azure.Messaging.ServiceBus`.
 3. Configure MongoDB in `appsettings.json`: Connection string.
-4. Add shared JWT authentication and shared services:
+4. Add shared JWT authentication, shared services, and messaging:
    - `services.AddSharedServices(configuration);`
    - `services.AddJwtAuthentication(configuration);`
    - `services.AddMongoDb(connectionString, "MemeTokenHubDB");`
+   - `services.AddServiceBusMessaging(configuration);`
    - `app.UseAuthentication();`
    - `app.UseAuthorization();`
-5. Implement controllers for endpoints.
+5. Implement controllers, services, and event publishers for `UserUpdatedEvent`.
 
 ### Key Classes
-- `UserController`: Handles API requests.
-- `UserService`: Business logic (CRUD, validation).
+- `UserController`: Handles API requests., publishes `UserUpdatedEvent` from shared library.
+- `UserRepository`: MongoDB interactions.
+- `UserEventPublisher`: Publishes `UserUpdatedEvent` (from shared library) to Azure Service Bus on profile updatevalidation).
 - `UserRepository`: MongoDB interactions.
 - `UserModel`: C# class for User document.
 
@@ -269,9 +271,26 @@ When a user logs in via Privy on the frontend, a token exchange is needed:
 2. Frontend receives Privy token; calls POST /api/users/auth/exchange.
 3. User Service verifies Privy token; creates or retrieves user from MongoDB.
 4. Service issues JWT token to frontend.
-5. Frontend stores JWT; uses it for all authenticated requests to backend services.
-6. User browses tokens; navigates to profile, updates info via PUT /api/users/{userId}.
-7. Moderator reviews claims; calls PUT /api/users/{userId}/role to assign role.
-8. Events sent to Azure Service Bus for notifications.
+5. On user update: Publish `UserUpdatedEvent` (from shared library) to Azure Service Bus for downstream services.
+8. Moderator reviews claims; calls PUT /api/users/{userId}/role to assign role.
+9. Role update: Publish updated `UserUpdatedEvent` to Azure Service Bus.
+
+## Event Publishing
+
+The User Service publishes events from the shared library:
+
+```csharp
+// In UserService after updating user profile
+var userUpdatedEvent = new UserUpdatedEvent
+{
+  UserId = user.UserId,
+  Username = user.Username,
+  Role = user.Role
+};
+
+await _userEventPublisher.PublishUserUpdatedEventAsync(userUpdatedEvent);
+```
+
+This detailed spec allows an AI agent to generate the ASP.NET Core API code, MongoDB models, Privy integration, JWT exchange logic, and event publishing
 
 This detailed spec allows an AI agent to generate the ASP.NET Core API code, MongoDB models, Privy integration, and JWT exchange logic for the User Service.

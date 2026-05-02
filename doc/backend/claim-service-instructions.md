@@ -78,25 +78,27 @@ Base URL: `/api/claims`
 
 - **User Service**: Role checks.
 - **Token Service**: Update claim status.
-- **Notification Service**: Events on approvals.
+- **Notification Service**: Publishes `ClaimApprovedEvent` from the shared library on approvals.
 
 ## Implementation Guidance
 
 ### ASP.NET Core Setup
 1. Create Web API project.
-2. Add packages: `MongoDB.Driver`.
+2. Add packages: `MongoDB.Driver`, `Azure.Messaging.ServiceBus`.
 3. Configure MongoDB in `appsettings.json`.
-4. Add shared services and shared JWT authentication:
+4. Add shared services, JWT authentication, and messaging:
    - `services.AddSharedServices(configuration);`
    - `services.AddJwtAuthentication(configuration);`
    - `services.AddMongoDb(connectionString, "MemeTokenHubDB");`
+   - `services.AddServiceBusMessaging(configuration);`
    - `app.UseAuthentication();`
    - `app.UseAuthorization();`
-5. Implement controllers, services, repositories.
+5. Implement controllers, services, repositories, and event publishers.
 
 ### Key Classes
 - `ClaimController`
 - `ClaimService`
+- `ClaimEventPublisher`: Publishes `ClaimApprovedEvent` to Azure Service Bus when claims are approved
 - `ClaimRepository : BaseRepository<Claim>`
 
 ### Security
@@ -112,7 +114,27 @@ Base URL: `/api/claims`
 ## Example Workflow
 
 1. User submits claim: POST /api/claims.
-2. Moderator reviews: GET /api/claims/pending, PUT /api/claims/{id}/review.
+2. Moderator rev
+   - Update claim status in MongoDB
+   - Publish `ClaimApprovedEvent` (from `MemeTokenHub.Shared.Messaging`) to Azure Service Bus
+   - Notification Service listens and sends notifications
+
+## Event Publishing
+
+The Claim Service publishes events from the shared library:
+
+```csharp
+// In ClaimService after approving a claim
+var claimApprovedEvent = new ClaimApprovedEvent
+{
+  ClaimId = claim.ClaimId,
+  UserId = claim.UserId,
+  TokenId = claim.TokenId,
+  Status = "Approved"
+};
+
+await _claimEventPublisher.PublishClaimApprovedEventAsync(claimApprovedEvent);
+```/api/claims/{id}/review.
 3. On approval: Emit event to Notification Service.
 
 This spec enables an AI agent to build the Claim Service.
